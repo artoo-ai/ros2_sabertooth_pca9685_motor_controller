@@ -314,35 +314,6 @@ class SabertoothMotorControllerNode(Node):
             )
             self._sabertooth.initialize()
 
-    def _try_hardware_drivers(self):
-        """Try hardware PCA9685 drivers in order of preference.
-
-        Returns the first driver that successfully initializes, or
-        falls back to PCA9685Driver (which will be tried again by
-        SabertoothDriver.initialize() and may trigger the Mock fallback).
-
-        Returns:
-            An initialized PWM driver instance.
-        """
-        # Strategy 1: smbus2 direct I2C (works on Jetson Orin Nano where Blinka fails)
-        try:
-            smbus2_driver = SMBus2PCA9685Driver(self._param_i2c_bus, self._param_pca_addr)
-            if smbus2_driver.initialize():
-                self.get_logger().info(
-                    f"Using smbus2 PCA9685 driver (direct I2C, bus {smbus2_driver._actual_bus_num})"
-                )
-                return smbus2_driver
-            else:
-                self.get_logger().info(
-                    "smbus2 PCA9685 driver: device not found, trying Adafruit..."
-                )
-        except Exception as e:
-            self.get_logger().info(f"smbus2 driver unavailable ({e}), trying Adafruit...")
-
-        # Strategy 2: Adafruit CircuitPython PCA9685
-        self.get_logger().info("Trying Adafruit PCA9685 driver...")
-        return PCA9685Driver(self._param_i2c_bus, self._param_pca_addr)
-
         # RC input
         if self._param_rc_enabled:
             if self._sim_mode:
@@ -373,6 +344,35 @@ class SabertoothMotorControllerNode(Node):
         else:
             self._rc_input = None
             self.get_logger().info("RC input disabled by configuration")
+
+    def _try_hardware_drivers(self):
+        """Try hardware PCA9685 drivers in order of preference.
+
+        Returns the first driver that successfully initializes, or
+        falls back to PCA9685Driver (which will be tried again by
+        SabertoothDriver.initialize() and may trigger the Mock fallback).
+
+        Returns:
+            An initialized PWM driver instance.
+        """
+        # Strategy 1: smbus2 direct I2C (works on Jetson Orin Nano where Blinka fails)
+        try:
+            smbus2_driver = SMBus2PCA9685Driver(self._param_i2c_bus, self._param_pca_addr)
+            if smbus2_driver.initialize():
+                self.get_logger().info(
+                    f"Using smbus2 PCA9685 driver (direct I2C, bus {smbus2_driver._actual_bus_num})"
+                )
+                return smbus2_driver
+            else:
+                self.get_logger().info(
+                    "smbus2 PCA9685 driver: device not found, trying Adafruit..."
+                )
+        except Exception as e:
+            self.get_logger().info(f"smbus2 driver unavailable ({e}), trying Adafruit...")
+
+        # Strategy 2: Adafruit CircuitPython PCA9685
+        self.get_logger().info("Trying Adafruit PCA9685 driver...")
+        return PCA9685Driver(self._param_i2c_bus, self._param_pca_addr)
 
     def _is_jetson_platform(self) -> bool:
         """Detect if running on a Jetson platform."""
