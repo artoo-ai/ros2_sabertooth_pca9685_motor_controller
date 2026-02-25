@@ -1,0 +1,31 @@
+# =============================================================================
+# Sabertooth 2x32 Override Parameters
+# =============================================================================
+#
+# Use this file for the larger robot with Sabertooth 2x32.
+# Only contains overrides - all other parameters use default_params.yaml values.
+#
+# The 2x32 is more powerful (32A vs 16A per channel), so we use more
+# conservative speed and acceleration settings for safety.
+#
+# Usage:
+#   ros2 launch sabertooth_motor_controller motor_controller.launch.py \
+#     config_file:=/path/to/sabertooth_2x32_params.yaml
+#
+# =============================================================================
+
+sabertooth_motor_controller:
+  ros__parameters:
+
+    # More conservative settings for the larger, more powerful robot
+    safety:
+      max_speed_teleop: 0.5         # Lower teleop speed for heavier robot
+      max_speed_autonomous: 0.3     # More conservative autonomous speed
+      accel_limit: 1.5              # Slower acceleration for heavier robot
+      decel_limit: 3.0              # Slower decel (still faster than accel)
+
+    # Adjust kinematics for the larger robot's dimensions
+    kinematics:
+      wheel_separation_m: 0.60      # Wider track on larger robot
+      wheel_radius_m: 0.10          # Larger wheels
+      max_linear_speed_ms: 1.5      # Higher max speed capability

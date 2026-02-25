@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Sabertooth Motor Controller</title>
+<style>
+/* === Theme === */
+:root {
+  --bg: #0f172a;
+  --bg-card: #1e293b;
+  --bg-card-alt: #334155;
+  --text: #e2e8f0;
+  --text-dim: #94a3b8;
+  --text-bright: #f8fafc;
+  --border: #475569;
+  --green: #22c55e;
+  --amber: #f59e0b;
+  --red: #ef4444;
+  --blue: #3b82f6;
+  --gray: #6b7280;
+  --dark-red: #991b1b;
+  --accent: #38bdf8;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* === Header === */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: var(--bg-card);
+  border-bottom: 2px solid var(--border);
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-right: 140px; /* space for fixed estop button */
+}
+
+.header h1 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-bright);
+  white-space: nowrap;
+}
+
+.header-status {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-badge .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.uptime {
+  font-size: 13px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* === E-Stop Button === */
+.estop-btn {
+  position: fixed;
+  top: 6px;
+  right: 12px;
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: var(--red);
+  color: white;
+  font-size: 18px;
+  font-weight: 800;
+  border: 5px solid #b91c1c;
+  box-shadow: 0 0 25px rgba(239, 68, 68, 0.5), inset 0 -3px 6px rgba(0,0,0,0.3);
+  cursor: pointer;
+  z-index: 9999;
+  touch-action: manipulation;
+  transition: transform 0.1s, box-shadow 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.1;
+  text-align: center;
+  user-select: none;
+}
+
+.estop-btn:hover {
+  box-shadow: 0 0 40px rgba(239, 68, 68, 0.7), inset 0 -3px 6px rgba(0,0,0,0.3);
+}
+
+.estop-btn:active {
+  transform: scale(0.93);
+}
+
+.estop-btn.engaged {
+  background: var(--green);
+  border-color: #15803d;
+  box-shadow: 0 0 25px rgba(34, 197, 94, 0.5), inset 0 -3px 6px rgba(0,0,0,0.3);
+  font-size: 14px;
+}
+
+/* === Page-wide ESTOP indicator === */
+body.estop-active {
+  border: 4px solid var(--red);
+  animation: estopFlash 0.8s ease-in-out infinite;
+}
+
+@keyframes estopFlash {
+  0%, 100% { border-color: var(--red); }
+  50% { border-color: transparent; }
+}
+
+/* === Main Grid === */
+.main-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+  padding: 16px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* === Cards === */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.card h2 {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* === Motor Status Table === */
+.status-table {
+  width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+
+.status-table td {
+  padding: 4px 0;
+  font-size: 14px;
+}
+
+.status-table td:first-child {
+  color: var(--text-dim);
+  width: 50%;
+}
+
+.status-table td:last-child {
+  text-align: right;
+  font-weight: 600;
+  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+}
+
+/* === Speed Slider === */
+.speed-control {
+  margin-bottom: 16px;
+}
+
+.speed-control label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+
+.speed-control .speed-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--bg-card-alt);
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 2px solid var(--bg);
+}
+
+/* === Keyboard Hint === */
+.key-hint {
+  margin-top: 12px;
+  padding: 10px;
+  background: var(--bg);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.6;
+  text-align: center;
+}
+
+.key-hint kbd {
+  display: inline-block;
+  padding: 2px 7px;
+  background: var(--bg-card-alt);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--text-bright);
+  min-width: 24px;
+  text-align: center;
+}
+
+/* === Reset Button === */
+.reset-btn {
+  width: 100%;
+  padding: 10px;
+  margin-top: 12px;
+  background: var(--bg-card-alt);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.reset-btn:hover {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: white;
+}
+
+/* === Direction Display === */
+.direction-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 180px;
+}
+
+.dir-grid {
+  display: grid;
+  grid-template-areas:
+    ". up ."
+    "left center right"
+    ". down .";
+  gap: 8px;
+}
+
+.dir-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  background: var(--bg);
+  border: 2px solid var(--border);
+  color: var(--text-dim);
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.dir-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+  box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+}
+
+.dir-btn[data-dir="up"] { grid-area: up; }
+.dir-btn[data-dir="left"] { grid-area: left; }
+.dir-btn[data-dir="center"] { grid-area: center; border-radius: 50%; }
+.dir-btn[data-dir="right"] { grid-area: right; }
+.dir-btn[data-dir="down"] { grid-area: down; }
+
+.dir-btn[data-dir="center"].active {
+  background: var(--red);
+  border-color: var(--red);
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
+}
+
+.dir-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 10px;
+  text-align: center;
+}
+
+/* === Flags === */
+.flag-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.flag-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--bg);
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.flag-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.flag-dot.on { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.flag-dot.off { background: var(--gray); }
+.flag-dot.warn { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+.flag-dot.error { background: var(--red); box-shadow: 0 0 6px var(--red); }
+
+/* === Bottom Row === */
+.bottom-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* === Connection Overlay === */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.92);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 5000;
+  transition: opacity 0.3s;
+}
+
+.overlay.hidden { opacity: 0; pointer-events: none; }
+
+.overlay-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 20px;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.overlay-text {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.overlay-sub {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-top: 8px;
+}
+
+/* === Speed Bar Visualization === */
+.speed-bar-container {
+  margin-top: 4px;
+}
+
+.speed-bar-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-bottom: 2px;
+}
+
+.speed-bar-wrap {
+  height: 6px;
+  background: var(--bg);
+  border-radius: 3px;
+  position: relative;
+  overflow: hidden;
+}
+
+.speed-bar-center {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 1px;
+  height: 100%;
+  background: var(--border);
+}
+
+.speed-bar-fill {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: left 0.1s, width 0.1s;
+}
+
+/* === Responsive === */
+@media (max-width: 900px) {
+  .main-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .bottom-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .main-grid {
+    grid-template-columns: 1fr;
+  }
+  .header {
+    padding-right: 120px;
+  }
+  .header h1 {
+    font-size: 15px;
+  }
+  .estop-btn {
+    width: 90px;
+    height: 90px;
+    font-size: 15px;
+  }
+  .dir-btn {
+    width: 48px;
+    height: 48px;
+    font-size: 18px;
+  }
+}
+
+/* === State-specific header colors === */
+.header.state-normal { border-bottom-color: var(--green); }
+.header.state-timeout { border-bottom-color: var(--amber); }
+.header.state-estop { border-bottom-color: var(--red); }
+.header.state-rc_override { border-bottom-color: var(--blue); }
+.header.state-initializing { border-bottom-color: var(--gray); }
+.header.state-error { border-bottom-color: var(--dark-red); }
+</style>
+</head>
+<body>
+
+<!-- Connection Overlay -->
+<div class="overlay" id="overlay">
+  <div class="overlay-spinner"></div>
+  <div class="overlay-text">Waiting for Motor Controller...</div>
+  <div class="overlay-sub">Make sure the motor controller node is running</div>
+</div>
+
+<!-- E-Stop Button (always visible) -->
+<button class="estop-btn" id="estopBtn" onclick="toggleEstop()">
+  E-STOP
+</button>
+
+<!-- Header -->
+<div class="header" id="header">
+  <h1>Sabertooth Motor Controller</h1>
+  <div class="header-status">
+    <span class="status-badge" id="stateBadge">
+      <span class="dot"></span>
+      <span id="stateName">--</span>
+    </span>
+    <span class="status-badge" id="sourceBadge" style="background: var(--bg-card-alt);">
+      <span id="sourceName">--</span>
+    </span>
+    <span class="uptime">Uptime: <span id="uptime">--</span>s</span>
+  </div>
+</div>
+
+<!-- Main Grid -->
+<div class="main-grid">
+
+  <!-- Motor Status Card -->
+  <div class="card">
+    <h2>Motor Status</h2>
+    <table class="status-table">
+      <tr><td>Left Commanded</td><td id="lCmd">--</td></tr>
+      <tr><td>Right Commanded</td><td id="rCmd">--</td></tr>
+      <tr>
+        <td colspan="2">
+          <div class="speed-bar-container">
+            <div class="speed-bar-label"><span>-1.0</span><span>L Cmd</span><span>+1.0</span></div>
+            <div class="speed-bar-wrap"><div class="speed-bar-center"></div><div class="speed-bar-fill" id="lCmdBar"></div></div>
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td colspan="2">
+          <div class="speed-bar-container">
+            <div class="speed-bar-label"><span>-1.0</span><span>R Cmd</span><span>+1.0</span></div>
+            <div class="speed-bar-wrap"><div class="speed-bar-center"></div><div class="speed-bar-fill" id="rCmdBar"></div></div>
+          </div>
+        </td>
+      </tr>
+      <tr><td>Left Actual</td><td id="lAct">--</td></tr>
+      <tr><td>Right Actual</td><td id="rAct">--</td></tr>
+      <tr>
+        <td colspan="2">
+          <div class="speed-bar-container">
+            <div class="speed-bar-label"><span>-1.0</span><span>L Act</span><span>+1.0</span></div>
+            <div class="speed-bar-wrap"><div class="speed-bar-center"></div><div class="speed-bar-fill" id="lActBar"></div></div>
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td colspan="2">
+          <div class="speed-bar-container">
+            <div class="speed-bar-label"><span>-1.0</span><span>R Act</span><span>+1.0</span></div>
+            <div class="speed-bar-wrap"><div class="speed-bar-center"></div><div class="speed-bar-fill" id="rActBar"></div></div>
+          </div>
+        </td>
+      </tr>
+      <tr><td>Left PWM</td><td id="lPwm">--</td></tr>
+      <tr><td>Right PWM</td><td id="rPwm">--</td></tr>
+      <tr><td>Cmd Age</td><td id="cmdAge">--</td></tr>
+    </table>
+  </div>
+
+  <!-- Controls Card -->
+  <div class="card">
+    <h2>Controls</h2>
+    <div class="speed-control">
+      <label>
+        <span>Max Speed</span>
+        <span class="speed-value" id="speedLabel">60%</span>
+      </label>
+      <input type="range" id="speedSlider" min="5" max="100" value="60"
+             oninput="updateSpeed(this.value)">
+    </div>
+
+    <button class="reset-btn" onclick="resetController()">Reset Controller</button>
+
+    <div class="key-hint">
+      <div><kbd>W</kbd> / <kbd>&uarr;</kbd> Forward</div>
+      <div>
+        <kbd>A</kbd> / <kbd>&larr;</kbd> Left &nbsp;
+        <kbd>D</kbd> / <kbd>&rarr;</kbd> Right
+      </div>
+      <div><kbd>S</kbd> / <kbd>&darr;</kbd> Backward</div>
+      <div style="margin-top: 6px;">
+        <kbd>Space</kbd> E-Stop &nbsp;
+        <kbd>Q</kbd> / <kbd>E</kbd> Speed +/-
+      </div>
+    </div>
+  </div>
+
+  <!-- Direction Display Card -->
+  <div class="card">
+    <h2>Direction</h2>
+    <div class="direction-display">
+      <div class="dir-grid">
+        <div class="dir-btn" data-dir="up" id="dirUp"
+             ontouchstart="touchStart(event,'up')" ontouchend="touchEnd(event,'up')"
+             onmousedown="touchStart(event,'up')" onmouseup="touchEnd(event,'up')">&#9650;</div>
+        <div class="dir-btn" data-dir="left" id="dirLeft"
+             ontouchstart="touchStart(event,'left')" ontouchend="touchEnd(event,'left')"
+             onmousedown="touchStart(event,'left')" onmouseup="touchEnd(event,'left')">&#9664;</div>
+        <div class="dir-btn" data-dir="center" id="dirCenter">&#9679;</div>
+        <div class="dir-btn" data-dir="right" id="dirRight"
+             ontouchstart="touchStart(event,'right')" ontouchend="touchEnd(event,'right')"
+             onmousedown="touchStart(event,'right')" onmouseup="touchEnd(event,'right')">&#9654;</div>
+        <div class="dir-btn" data-dir="down" id="dirDown"
+             ontouchstart="touchStart(event,'down')" ontouchend="touchEnd(event,'down')"
+             onmousedown="touchStart(event,'down')" onmouseup="touchEnd(event,'down')">&#9660;</div>
+      </div>
+      <div class="dir-label">Lights up based on actual motor output<br>(from any command source)</div>
+    </div>
+  </div>
+
+  <!-- Bottom Row -->
+  <div class="bottom-row">
+
+    <!-- Flags Card -->
+    <div class="card">
+      <h2>System Flags</h2>
+      <div class="flag-grid">
+        <div class="flag-item"><span class="flag-dot" id="flagHw"></span><span>HW Present</span></div>
+        <div class="flag-item"><span class="flag-dot" id="flagRc"></span><span>RC Connected</span></div>
+        <div class="flag-item"><span class="flag-dot" id="flagEstop"></span><span>E-Stop Active</span></div>
+        <div class="flag-item"><span class="flag-dot" id="flagTimeout"></span><span>Cmd Timeout</span></div>
+        <div class="flag-item"><span class="flag-dot" id="flagLimited"></span><span>Speed Limited</span></div>
+        <div class="flag-item"><span class="flag-dot" id="flagConnected"></span><span>GUI Connected</span></div>
+      </div>
+    </div>
+
+    <!-- RC Diagnostics Card -->
+    <div class="card">
+      <h2>RC Diagnostics</h2>
+      <table class="status-table">
+        <tr><td>Ch1 (Steering)</td><td id="rcCh1">--</td></tr>
+        <tr><td>Ch2 (Throttle)</td><td id="rcCh2">--</td></tr>
+        <tr><td>Ch3 (E-Stop)</td><td id="rcCh3">--</td></tr>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* === Configuration === */
+const STATUS_POLL_MS = 100;   // 10Hz polling
+const COMMAND_RATE_MS = 100;  // 10Hz command sending
+const SPEED_STEP = 5;         // Speed slider step for Q/E keys
+
+/* === State === */
+let maxSpeed = 0.6;
+const keysPressed = new Set();
+const touchesActive = new Set();
+let commandInterval = null;
+let estopEngaged = false;
+let lastStatusTime = 0;
+
+/* === Speed Slider === */
+function updateSpeed(val) {
+  maxSpeed = parseInt(val) / 100;
+  document.getElementById('speedLabel').textContent = val + '%';
+}
+
+/* === Status Polling === */
+async function pollStatus() {
+  try {
+    const resp = await fetch('/api/status');
+    const s = await resp.json();
+    lastStatusTime = Date.now();
+
+    if (!s.connected) {
+      document.getElementById('overlay').classList.remove('hidden');
+    } else {
+      document.getElementById('overlay').classList.add('hidden');
+      updateDashboard(s);
+    }
+  } catch (err) {
+    // Server unreachable
+    if (Date.now() - lastStatusTime > 2000) {
+      document.getElementById('overlay').classList.remove('hidden');
+    }
+  }
+  setTimeout(pollStatus, STATUS_POLL_MS);
+}
+
+function updateDashboard(s) {
+  // Safety state badge
+  const stateEl = document.getElementById('stateBadge');
+  const stateColors = {
+    'NORMAL': 'var(--green)', 'TIMEOUT': 'var(--amber)',
+    'ESTOP': 'var(--red)', 'RC_OVERRIDE': 'var(--blue)',
+    'INITIALIZING': 'var(--gray)', 'ERROR': 'var(--dark-red)'
+  };
+  const color = stateColors[s.safety_state_name] || 'var(--gray)';
+  stateEl.style.background = color + '22';
+  stateEl.style.border = '1px solid ' + color;
+  stateEl.querySelector('.dot').style.background = color;
+  document.getElementById('stateName').textContent = s.safety_state_name || '--';
+
+  // Header state class
+  const header = document.getElementById('header');
+  header.className = 'header state-' + (s.safety_state_name || '').toLowerCase();
+
+  // Body ESTOP flash
+  if (s.safety_state_name === 'ESTOP') {
+    document.body.classList.add('estop-active');
+  } else {
+    document.body.classList.remove('estop-active');
+  }
+
+  // Update E-Stop button state
+  estopEngaged = s.estop_active;
+  const estopBtn = document.getElementById('estopBtn');
+  if (estopEngaged) {
+    estopBtn.classList.add('engaged');
+    estopBtn.innerHTML = 'RELEASE<br>E-STOP';
+  } else {
+    estopBtn.classList.remove('engaged');
+    estopBtn.textContent = 'E-STOP';
+  }
+
+  // Source badge
+  document.getElementById('sourceName').textContent = s.active_source_name || '--';
+
+  // Uptime
+  document.getElementById('uptime').textContent = (s.uptime_sec || 0).toFixed(1);
+
+  // Motor values
+  document.getElementById('lCmd').textContent = fmtSpeed(s.left_speed_commanded);
+  document.getElementById('rCmd').textContent = fmtSpeed(s.right_speed_commanded);
+  document.getElementById('lAct').textContent = fmtSpeed(s.left_speed_actual);
+  document.getElementById('rAct').textContent = fmtSpeed(s.right_speed_actual);
+  document.getElementById('lPwm').textContent = s.left_pwm_duty_cycle || '--';
+  document.getElementById('rPwm').textContent = s.right_pwm_duty_cycle || '--';
+  document.getElementById('cmdAge').textContent = (s.last_command_age_sec || 0).toFixed(3) + 's';
+
+  // Speed bars
+  updateSpeedBar('lCmdBar', s.left_speed_commanded);
+  updateSpeedBar('rCmdBar', s.right_speed_commanded);
+  updateSpeedBar('lActBar', s.left_speed_actual);
+  updateSpeedBar('rActBar', s.right_speed_actual);
+
+  // Direction display (based on actual speeds from ANY source)
+  const la = s.left_speed_actual || 0;
+  const ra = s.right_speed_actual || 0;
+  const avg = (la + ra) / 2;
+  const diff = la - ra; // positive = turning right (left faster)
+  const thresh = 0.02;
+
+  setDirActive('dirUp', avg > thresh);
+  setDirActive('dirDown', avg < -thresh);
+  setDirActive('dirRight', diff > thresh);
+  setDirActive('dirLeft', diff < -thresh);
+  setDirActive('dirCenter', Math.abs(avg) < thresh && Math.abs(diff) < thresh);
+
+  // Flags
+  setFlag('flagHw', s.hardware_present, false);
+  setFlag('flagRc', s.rc_connected, false);
+  setFlag('flagEstop', !s.estop_active, s.estop_active);
+  setFlag('flagTimeout', !s.command_timeout, s.command_timeout);
+  setFlag('flagLimited', !s.speed_limited, false);
+  setFlag('flagConnected', s.connected, false);
+
+  // RC diagnostics
+  document.getElementById('rcCh1').textContent = fmtPulse(s.rc_ch1_pulse_us);
+  document.getElementById('rcCh2').textContent = fmtPulse(s.rc_ch2_pulse_us);
+  document.getElementById('rcCh3').textContent = fmtPulse(s.rc_ch3_pulse_us);
+}
+
+function fmtSpeed(v) {
+  if (v === undefined || v === null) return '--';
+  return (v >= 0 ? '+' : '') + v.toFixed(4);
+}
+
+function fmtPulse(v) {
+  if (!v || v === 0) return '0 us';
+  return v.toFixed(0) + ' us';
+}
+
+function updateSpeedBar(id, value) {
+  const el = document.getElementById(id);
+  if (!el || value === undefined) return;
+  const v = Math.max(-1, Math.min(1, value));
+  if (v >= 0) {
+    el.style.left = '50%';
+    el.style.width = (v * 50) + '%';
+  } else {
+    el.style.left = (50 + v * 50) + '%';
+    el.style.width = (-v * 50) + '%';
+  }
+}
+
+function setDirActive(id, active) {
+  const el = document.getElementById(id);
+  if (active) el.classList.add('active');
+  else el.classList.remove('active');
+}
+
+function setFlag(id, good, bad) {
+  const el = document.getElementById(id);
+  el.className = 'flag-dot ' + (bad ? 'error' : (good ? 'on' : 'off'));
+}
+
+/* === Keyboard Controls === */
+const DRIVE_KEYS = new Set([
+  'w', 'a', 's', 'd',
+  'arrowup', 'arrowdown', 'arrowleft', 'arrowright'
+]);
+
+document.addEventListener('keydown', (e) => {
+  const key = e.key.toLowerCase();
+
+  // E-Stop on Space
+  if (e.key === ' ') {
+    e.preventDefault();
+    toggleEstop();
+    return;
+  }
+
+  // Speed adjustment
+  if (key === 'q') {
+    e.preventDefault();
+    const slider = document.getElementById('speedSlider');
+    slider.value = Math.min(100, parseInt(slider.value) + SPEED_STEP);
+    updateSpeed(slider.value);
+    return;
+  }
+  if (key === 'e') {
+    e.preventDefault();
+    const slider = document.getElementById('speedSlider');
+    slider.value = Math.max(5, parseInt(slider.value) - SPEED_STEP);
+    updateSpeed(slider.value);
+    return;
+  }
+
+  // Drive keys
+  if (DRIVE_KEYS.has(key)) {
+    e.preventDefault();
+    keysPressed.add(key);
+    startCommandLoop();
+  }
+});
+
+document.addEventListener('keyup', (e) => {
+  const key = e.key.toLowerCase();
+  if (DRIVE_KEYS.has(key)) {
+    e.preventDefault();
+    keysPressed.delete(key);
+    if (keysPressed.size === 0 && touchesActive.size === 0) {
+      stopCommandLoop();
+    }
+  }
+});
+
+/* === Touch / Mouse Controls === */
+function touchStart(e, dir) {
+  e.preventDefault();
+  touchesActive.add(dir);
+  // Map touch directions to equivalent keys
+  const dirToKey = { up: 'w', down: 's', left: 'a', right: 'd' };
+  keysPressed.add(dirToKey[dir]);
+  startCommandLoop();
+}
+
+function touchEnd(e, dir) {
+  e.preventDefault();
+  touchesActive.delete(dir);
+  const dirToKey = { up: 'w', down: 's', left: 'a', right: 'd' };
+  keysPressed.delete(dirToKey[dir]);
+  if (keysPressed.size === 0 && touchesActive.size === 0) {
+    stopCommandLoop();
+  }
+}
+
+/* Prevent context menu on long-press (mobile) */
+document.querySelectorAll('.dir-btn').forEach(btn => {
+  btn.addEventListener('contextmenu', e => e.preventDefault());
+});
+
+/* === Command Loop === */
+function startCommandLoop() {
+  if (!commandInterval) {
+    sendCommand();
+    commandInterval = setInterval(sendCommand, COMMAND_RATE_MS);
+  }
+}
+
+function stopCommandLoop() {
+  if (commandInterval) {
+    clearInterval(commandInterval);
+    commandInterval = null;
+  }
+  sendStop();
+}
+
+function sendCommand() {
+  let linear_x = 0;
+  let angular_z = 0;
+
+  if (keysPressed.has('w') || keysPressed.has('arrowup')) linear_x += maxSpeed;
+  if (keysPressed.has('s') || keysPressed.has('arrowdown')) linear_x -= maxSpeed;
+  if (keysPressed.has('a') || keysPressed.has('arrowleft')) angular_z += maxSpeed;
+  if (keysPressed.has('d') || keysPressed.has('arrowright')) angular_z -= maxSpeed;
+
+  fetch('/api/cmd_vel', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ linear_x, angular_z })
+  }).catch(() => {}); // Silently ignore network errors
+}
+
+function sendStop() {
+  fetch('/api/cmd_vel', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ linear_x: 0, angular_z: 0 })
+  }).catch(() => {});
+}
+
+/* === Tab Visibility === */
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    keysPressed.clear();
+    touchesActive.clear();
+    stopCommandLoop();
+  }
+});
+
+/* === E-Stop Toggle === */
+async function toggleEstop() {
+  const engage = !estopEngaged;
+  try {
+    const resp = await fetch('/api/estop', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ engage })
+    });
+    const data = await resp.json();
+    if (!data.success && engage) {
+      console.warn('E-Stop failed:', data.message);
+    }
+  } catch (err) {
+    console.error('E-Stop request failed:', err);
+  }
+}
+
+/* === Reset Controller === */
+async function resetController() {
+  try {
+    const resp = await fetch('/api/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const data = await resp.json();
+    if (!data.success) {
+      console.warn('Reset failed:', data.message);
+    }
+  } catch (err) {
+    console.error('Reset request failed:', err);
+  }
+}
+
+/* === Init === */
+document.addEventListener('DOMContentLoaded', () => {
+  pollStatus();
+});
+</script>
+</body>
+</html>

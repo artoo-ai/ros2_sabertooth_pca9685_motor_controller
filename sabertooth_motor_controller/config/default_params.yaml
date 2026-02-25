@@ -1,0 +1,146 @@
+# =============================================================================
+# Sabertooth Motor Controller - Default Parameters
+# =============================================================================
+#
+# This file contains all configurable parameters for the motor controller node.
+# Override any parameter via launch file arguments or a separate YAML file.
+#
+# IMPORTANT: Review safety parameters carefully before first use!
+#
+# Usage:
+#   ros2 launch sabertooth_motor_controller motor_controller.launch.py
+#   ros2 launch sabertooth_motor_controller motor_controller.launch.py config_file:=/path/to/custom.yaml
+#
+# =============================================================================
+
+sabertooth_motor_controller:
+  ros__parameters:
+
+    # =========================================================================
+    # Hardware Configuration
+    # =========================================================================
+    hardware:
+      simulation_mode: false        # Force simulation mode (auto-detected if false)
+      i2c_bus: 1                    # I2C bus number (1 or 7 on Jetson Orin Nano)
+                                    # Verify with: i2cdetect -y -r 1
+      pca9685_address: 0x40         # PCA9685 I2C address (change if jumpers set)
+      pwm_frequency: 50             # Hz - MUST be 50 for Sabertooth RC mode
+
+    # =========================================================================
+    # Motor Channel Mapping
+    # =========================================================================
+    # Which PCA9685 channels connect to Sabertooth S1 (left) and S2 (right)
+    channels:
+      left_motor: 0                 # PCA9685 channel -> Sabertooth S1
+      right_motor: 1                # PCA9685 channel -> Sabertooth S2
+
+    # =========================================================================
+    # Sabertooth PWM Configuration
+    # =========================================================================
+    # Standard RC pulse widths. These values work for both 2x16 and 2x32.
+    # Do NOT change these unless you've modified the Sabertooth's DIP switches.
+    sabertooth:
+      pulse_neutral_us: 1500        # Neutral / stopped
+      pulse_min_us: 1000            # Full reverse
+      pulse_max_us: 2000            # Full forward
+      deadband_us: 30               # Speeds within this range of neutral snap to 0
+                                    # Prevents motor whine at very low speeds
+
+    # =========================================================================
+    # Drive Kinematics
+    # =========================================================================
+    # Configure these to match your robot's physical dimensions.
+    kinematics:
+      type: "tank"                  # Drive type: "tank" (differential drive)
+                                    # Future: "mecanum", "ackermann"
+
+      wheel_separation_m: 0.45      # Distance between left and right wheels (meters)
+                                    # Measure center-to-center of drive wheels/tracks
+
+      wheel_radius_m: 0.075         # Wheel radius (meters)
+
+      max_linear_speed_ms: 1.0      # Maximum linear speed (m/s) for cmd_vel scaling
+                                    # cmd_vel linear.x of 1.0 m/s = motor speed 1.0
+
+      max_angular_speed_rads: 2.0   # Maximum angular speed (rad/s)
+                                    # cmd_vel angular.z of 2.0 rad/s = full differential
+
+      left_motor_inverted: false    # Invert left motor direction if wired backwards
+      right_motor_inverted: false   # Invert right motor direction if wired backwards
+
+    # =========================================================================
+    # Safety Parameters (CRITICAL - Review carefully!)
+    # =========================================================================
+    # These parameters directly affect the robot's behavior around people.
+    # More conservative values = safer but less responsive.
+    safety:
+      command_timeout_ms: 500.0     # Motors stop if no command received in this time
+                                    # 500ms = reasonable for WiFi/Bluetooth latency
+                                    # Lower for conventions (250ms), higher for dev (1000ms)
+
+      heartbeat_timeout_ms: 2000.0  # Node-level heartbeat monitoring
+
+      max_speed_teleop: 0.6         # Max speed fraction (0.0-1.0) for keyboard/joystick
+                                    # 0.6 = 60% of full speed, good for indoor use
+
+      max_speed_autonomous: 0.4     # Max speed for autonomous navigation
+                                    # Should be conservative for safety around people
+
+      max_speed_rc: 1.0             # Max speed for RC radio control
+                                    # 1.0 = full speed, operator has direct control
+
+      accel_limit: 2.0              # Max acceleration (speed-units/sec)
+                                    # At 2.0: 0 to full speed in 0.5 seconds
+                                    # Lower = smoother starts, higher = snappier response
+
+      decel_limit: 4.0              # Max deceleration (speed-units/sec)
+                                    # HIGHER than accel_limit so robot stops faster
+                                    # than it starts - important safety feature
+
+      emergency_decel_limit: 10.0   # E-stop deceleration rate
+                                    # Very high for near-instant stop
+                                    # At 10.0: full speed to zero in 0.1 seconds
+
+      startup_delay_sec: 1.0        # Delay before accepting commands after boot
+                                    # Allows all systems to initialize
+
+    # =========================================================================
+    # RC Input Configuration
+    # =========================================================================
+    # Configure for your FlySky (or similar) RC receiver.
+    # See README.md for wiring diagram.
+    rc_input:
+      enabled: true                 # Set false to disable RC input entirely
+
+      ch1_gpio_pin: 18              # Jetson header pin for RC channel 1
+      ch2_gpio_pin: 22              # Jetson header pin for RC channel 2
+      ch3_gpio_pin: 13              # Jetson header pin for RC channel 3 (e-stop)
+
+      pin_numbering: "BOARD"        # "BOARD" = physical pin number
+                                    # "BCM" = GPIO/Tegra number
+
+      pulse_min_us: 1000.0          # Minimum valid RC pulse width
+      pulse_max_us: 2000.0          # Maximum valid RC pulse width
+      pulse_neutral_us: 1500.0      # RC neutral/center point
+
+      rc_deadband_us: 50.0          # Deadband around RC neutral
+                                    # Wider than Sabertooth deadband to absorb
+                                    # RC transmitter trim drift
+
+      signal_timeout_ms: 500.0      # RC signal lost if no pulse in this time
+                                    # At 50Hz, 500ms = 25 missed frames
+
+      estop_threshold_us: 1200.0    # Ch3 pulse below this = e-stop active
+                                    # Use a 2-position switch on transmitter
+                                    # DOWN position (~1000us) = e-stop engaged
+                                    # UP position (~2000us) = normal operation
+
+      rc_mixing_mode: "tank"        # "tank": ch1=left motor, ch2=right motor
+                                    # "arcade": ch1=steering, ch2=throttle
+
+    # =========================================================================
+    # Diagnostics
+    # =========================================================================
+    diagnostics:
+      status_publish_rate_hz: 10.0  # Rate for /motor_status publishing
+                                    # 10Hz is good for monitoring, increase for logging
