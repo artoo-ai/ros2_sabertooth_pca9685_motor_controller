@@ -27,6 +27,7 @@ ROS2 Humble driver for Dimension Engineering Sabertooth 2x16/2x32 motor controll
 5. [Software Installation](#software-installation)
 6. [Configuration](#configuration)
 7. [Usage](#usage)
+   - [Quick Start Scripts](#quick-start-scripts)
 8. [ROS2 Interface](#ros2-interface)
 9. [Testing](#testing)
 10. [Troubleshooting](#troubleshooting)
@@ -356,6 +357,46 @@ ros2 launch sabertooth_motor_controller motor_controller.launch.py \
 ---
 
 ## Usage
+
+### Quick Start Scripts
+
+Convenience shell scripts are provided in the `scripts/` directory. Each script automatically sources ROS2 and the workspace, and accepts `--help` for full options.
+
+```bash
+cd scripts/
+
+# Build the workspace (run after pulling new code)
+./startup_build.sh                       # Build all packages
+./startup_build.sh --clean               # Clean rebuild
+./startup_build.sh --controller          # Build motor controller only
+
+# Start motor controller only
+./startup_motor_controller.sh            # Auto-detect hardware
+./startup_motor_controller.sh --sim      # Force simulation mode
+./startup_motor_controller.sh --debug    # Debug logging
+
+# Start with keyboard teleop
+./startup_teleop.sh                      # Hardware mode
+./startup_teleop.sh --sim               # Simulation mode
+
+# Start with web GUI (browser-based control)
+./startup_gui.sh                         # Default (http://localhost:5000)
+./startup_gui.sh --port 8080             # Custom port
+./startup_gui.sh --sim                   # Simulation mode
+
+# Monitor motor status (run in a separate terminal)
+./startup_monitor.sh                     # Live status messages
+./startup_monitor.sh --hz                # Show publish rate
+```
+
+All startup scripts support these common options:
+
+| Option | Description |
+|--------|-------------|
+| `--sim`, `--simulation` | Force simulation mode (no hardware) |
+| `--debug` | Enable debug-level logging |
+| `--config FILE` | Use a custom parameter YAML file |
+| `-h`, `--help` | Show help with all options |
 
 ### Start Motor Controller (Jetson with hardware)
 
