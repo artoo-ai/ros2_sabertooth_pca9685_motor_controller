@@ -329,8 +329,7 @@ class SabertoothMotorControllerNode(Node):
             smbus2_driver = SMBus2PCA9685Driver(self._param_i2c_bus, self._param_pca_addr)
             if smbus2_driver.initialize():
                 self.get_logger().info(
-                    "Using smbus2 PCA9685 driver (direct I2C, bus %d)",
-                    smbus2_driver._actual_bus_num
+                    f"Using smbus2 PCA9685 driver (direct I2C, bus {smbus2_driver._actual_bus_num})"
                 )
                 return smbus2_driver
             else:
@@ -338,7 +337,7 @@ class SabertoothMotorControllerNode(Node):
                     "smbus2 PCA9685 driver: device not found, trying Adafruit..."
                 )
         except Exception as e:
-            self.get_logger().info("smbus2 driver unavailable (%s), trying Adafruit...", e)
+            self.get_logger().info(f"smbus2 driver unavailable ({e}), trying Adafruit...")
 
         # Strategy 2: Adafruit CircuitPython PCA9685
         self.get_logger().info("Trying Adafruit PCA9685 driver...")
