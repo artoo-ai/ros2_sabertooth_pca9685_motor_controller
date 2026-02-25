@@ -47,6 +47,7 @@ from std_srvs.srv import SetBool, Trigger
 # Import our modules
 from .sabertooth_driver import SabertoothDriver
 from .pca9685_driver import PCA9685Driver
+from .smbus2_pca9685_driver import SMBus2PCA9685Driver
 from .mock_hardware import MockPWMDriver, MockRCInput
 from .drive_kinematics import TankDriveKinematics, create_kinematics
 from .safety_monitor import SafetyMonitor, SafetyState, CommandSource
@@ -262,13 +263,19 @@ class SabertoothMotorControllerNode(Node):
 
         If simulation_mode is True or hardware is not detected,
         falls back to mock drivers automatically.
+
+        Driver selection order (when not in simulation mode):
+          1. SMBus2PCA9685Driver - Direct I2C via smbus2 (preferred on Jetson,
+             bypasses Adafruit Blinka which can't detect Jetson Orin Nano)
+          2. PCA9685Driver - Adafruit CircuitPython (fallback)
+          3. MockPWMDriver - Simulation mode (last resort)
         """
         # PCA9685 driver
         if self._sim_mode:
             self.get_logger().info("Using mock PWM driver (simulation mode)")
             pwm_driver = MockPWMDriver(self._param_i2c_bus, self._param_pca_addr)
         else:
-            pwm_driver = PCA9685Driver(self._param_i2c_bus, self._param_pca_addr)
+            pwm_driver = self._try_hardware_drivers()
 
         # Sabertooth driver (wraps PWM driver)
         self._sabertooth = SabertoothDriver(
@@ -288,7 +295,7 @@ class SabertoothMotorControllerNode(Node):
         if not hw_ready and not self._sim_mode:
             self.get_logger().warn(
                 "PCA9685 hardware not detected - falling back to simulation mode. "
-                "Check I2C wiring and run: i2cdetect -y -r 1"
+                "Check I2C wiring and run: i2cdetect -y -r 1  (and bus 7: i2cdetect -y -r 7)"
             )
             self._sim_mode = True
             # Replace with mock driver since real one failed to initialize
@@ -306,6 +313,36 @@ class SabertoothMotorControllerNode(Node):
                 pwm_frequency=self._param_pwm_freq,
             )
             self._sabertooth.initialize()
+
+    def _try_hardware_drivers(self):
+        """Try hardware PCA9685 drivers in order of preference.
+
+        Returns the first driver that successfully initializes, or
+        falls back to PCA9685Driver (which will be tried again by
+        SabertoothDriver.initialize() and may trigger the Mock fallback).
+
+        Returns:
+            An initialized PWM driver instance.
+        """
+        # Strategy 1: smbus2 direct I2C (works on Jetson Orin Nano where Blinka fails)
+        try:
+            smbus2_driver = SMBus2PCA9685Driver(self._param_i2c_bus, self._param_pca_addr)
+            if smbus2_driver.initialize():
+                self.get_logger().info(
+                    "Using smbus2 PCA9685 driver (direct I2C, bus %d)",
+                    smbus2_driver._actual_bus_num
+                )
+                return smbus2_driver
+            else:
+                self.get_logger().info(
+                    "smbus2 PCA9685 driver: device not found, trying Adafruit..."
+                )
+        except Exception as e:
+            self.get_logger().info("smbus2 driver unavailable (%s), trying Adafruit...", e)
+
+        # Strategy 2: Adafruit CircuitPython PCA9685
+        self.get_logger().info("Trying Adafruit PCA9685 driver...")
+        return PCA9685Driver(self._param_i2c_bus, self._param_pca_addr)
 
         # RC input
         if self._param_rc_enabled:

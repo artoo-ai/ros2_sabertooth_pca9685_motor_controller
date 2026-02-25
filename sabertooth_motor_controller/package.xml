@@ -20,6 +20,9 @@
   <depend>std_srvs</depend>
   <depend>sabertooth_motor_controller_msgs</depend>
 
+  <!-- Hardware I2C (direct PCA9685 access, bypasses Adafruit Blinka) -->
+  <exec_depend>python3-smbus2</exec_depend>
+
   <!-- GUI dependencies -->
   <exec_depend>python3-flask</exec_depend>
 

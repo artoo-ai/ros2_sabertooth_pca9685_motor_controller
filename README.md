@@ -393,6 +393,36 @@ w/x: increase/decrease linear speed by 10%
 e/c: increase/decrease angular speed by 10%
 ```
 
+### Web GUI
+
+A browser-based dashboard for driving, monitoring, and E-Stop control. Works on desktop, tablet, and phone.
+
+```bash
+# Launch motor controller + web GUI together:
+ros2 launch sabertooth_motor_controller gui.launch.py simulation_mode:=true
+
+# Then open in any browser:
+#   http://localhost:5000
+#   http://<jetson-ip>:5000  (from another device on the network)
+
+# Custom port:
+ros2 launch sabertooth_motor_controller gui.launch.py simulation_mode:=true gui_port:=8080
+```
+
+Web GUI controls:
+```
+W / Arrow Up      Forward
+S / Arrow Down    Backward
+A / Arrow Left    Turn left
+D / Arrow Right   Turn right
+Space             E-Stop toggle
+Q / E             Increase / decrease speed
+```
+
+The GUI also shows real-time motor status, safety state, and direction indicators that light up based on actual motor output from **any** command source (RC, teleop, autonomous).
+
+Requires `flask` (`pip install flask` or `sudo apt install python3-flask`).
+
 ### Manual Command Publishing
 
 ```bash
