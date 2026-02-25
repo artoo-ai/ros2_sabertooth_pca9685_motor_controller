@@ -291,6 +291,21 @@ class SabertoothMotorControllerNode(Node):
                 "Check I2C wiring and run: i2cdetect -y -r 1"
             )
             self._sim_mode = True
+            # Replace with mock driver since real one failed to initialize
+            mock_pwm = MockPWMDriver(self._param_i2c_bus, self._param_pca_addr)
+            self._sabertooth = SabertoothDriver(
+                pwm_driver=mock_pwm,
+                left_channel=self._param_left_ch,
+                right_channel=self._param_right_ch,
+                pulse_neutral_us=self._param_pulse_neutral,
+                pulse_min_us=self._param_pulse_min,
+                pulse_max_us=self._param_pulse_max,
+                deadband_us=self._param_deadband,
+                left_inverted=self._param_left_inv,
+                right_inverted=self._param_right_inv,
+                pwm_frequency=self._param_pwm_freq,
+            )
+            self._sabertooth.initialize()
 
         # RC input
         if self._param_rc_enabled:
