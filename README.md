@@ -93,7 +93,7 @@ ANY --> ERROR (hardware fault)
 
 ### Main System Wiring
 
-![Main System Wiring](docs/images/01_main_system_wiring.png)
+![Main System Wiring](sabertooth_motor_controller/docs/images/01_main_system_wiring.png)
 
 ```
 JETSON ORIN NANO (40-Pin Header)
@@ -153,19 +153,19 @@ NOTE: RC signal levels (3.3V-5V) are safe for Jetson GPIO inputs.
 
 ### RC Receiver Wiring
 
-![RC Receiver Wiring](docs/images/02_rc_receiver_wiring.png)
+![RC Receiver Wiring](sabertooth_motor_controller/docs/images/02_rc_receiver_wiring.png)
 
 ### E-Stop & Battery Wiring
 
-![E-Stop & Battery Wiring](docs/images/03_estop_battery_wiring.png)
+![E-Stop & Battery Wiring](sabertooth_motor_controller/docs/images/03_estop_battery_wiring.png)
 
 ### PWM Signal Timing
 
-![PWM Signal Timing](docs/images/06_pwm_signal_timing.png)
+![PWM Signal Timing](sabertooth_motor_controller/docs/images/06_pwm_signal_timing.png)
 
 ### Complete System Diagram
 
-![Complete System Overview](docs/images/05_complete_system_overview.png)
+![Complete System Overview](sabertooth_motor_controller/docs/images/05_complete_system_overview.png)
 
 ```
                      ┌─────────────────────────┐
@@ -232,7 +232,7 @@ NOTE: RC signal levels (3.3V-5V) are safe for Jetson GPIO inputs.
 
 Set the Sabertooth DIP switches for **Independent R/C Microcontroller Mode**:
 
-![Sabertooth DIP Switch Configuration](docs/images/04_sabertooth_dip_switches.png)
+![Sabertooth DIP Switch Configuration](sabertooth_motor_controller/docs/images/04_sabertooth_dip_switches.png)
 
 ```
 DIP Switch Settings:
